@@ -6,7 +6,7 @@
 // cursor, selection and text rendering are things the browser already does
 // correctly.
 
-import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js";
+import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=2";
 
 // Which column of a track the cursor is in.
 export const COLS = ["note", "inst", "vel", "rel", "cut", "vol"];
@@ -36,7 +36,17 @@ export class Grid {
 
     this.root.tabIndex = 0;
     this.root.addEventListener("keydown", (e) => this.onKey(e));
-    this.root.addEventListener("mousedown", (e) => this.onMouse(e));
+    // Pointer events rather than mousedown. iOS only synthesises mouse events
+    // for elements it deems clickable -- links, controls, anything with its
+    // own click handler -- and a span inside a div is none of those, so on an
+    // iPhone a tap on a cell used to do nothing at all. A tap is a pointer
+    // that comes back up more or less where it went down; anything else is
+    // the grid being scrolled, and must not move the cursor.
+    this.root.addEventListener("pointerdown", (e) => {
+      this.press = { x: e.clientX, y: e.clientY, target: e.target };
+    });
+    this.root.addEventListener("pointerup", (e) => this.onTap(e));
+    this.root.addEventListener("pointercancel", () => { this.press = null; });
   }
 
   pattern() {
@@ -94,6 +104,7 @@ export class Grid {
 
     this.root.replaceChildren(frag);
     this.rows = Array.from(this.root.querySelectorAll(".tl-row[data-row]"));
+    this.lastCursorEl = this.lastHereRow = this.lastPlayingRow = null;
     this.paintCursor();
   }
 
@@ -123,11 +134,14 @@ export class Grid {
   paintCursor() {
     if (!this.rows) return;
     if (this.lastCursorEl) this.lastCursorEl.classList.remove("tl-cursor");
-    this.rows.forEach((r) => r.classList.remove("tl-here", "tl-playing"));
+    if (this.lastHereRow) this.lastHereRow.classList.remove("tl-here");
+    if (this.lastPlayingRow) this.lastPlayingRow.classList.remove("tl-playing");
+    this.lastHereRow = this.lastPlayingRow = null;
 
     const row = this.rows[this.cursor.row];
     if (row) {
       row.classList.add("tl-here");
+      this.lastHereRow = row;
       const sel = row.querySelector(
         `.tl-col[data-track="${this.cursor.track}"][data-col="${this.cursor.col}"]`);
       if (sel) {
@@ -136,8 +150,24 @@ export class Grid {
         this.scrollIntoView(row);
       }
     }
-    if (this.playRow >= 0 && this.rows[this.playRow])
+    if (this.playRow >= 0 && this.rows[this.playRow]) {
       this.rows[this.playRow].classList.add("tl-playing");
+      this.lastPlayingRow = this.rows[this.playRow];
+    }
+  }
+
+  // Redraw one track of one row in place. An edit touches one cell, and
+  // rebuilding all three thousand spans for it took most of a fifth of a
+  // second on a phone -- long enough that typing felt like wading.
+  refreshCell(r, t) {
+    const row = this.rows && this.rows[r];
+    if (!row) return;
+    const c = this.pattern().tracks[t][r];
+    const empty = isEmptyCell(c);
+    row.querySelectorAll(`.tl-col[data-track="${t}"]`).forEach((span) => {
+      span.textContent = this.text(c, COLS[Number(span.dataset.col)]);
+      span.classList.toggle("tl-empty", empty);
+    });
   }
 
   scrollIntoView(row) {
@@ -158,9 +188,13 @@ export class Grid {
 
   // -------------------------------------------------------------- input
 
-  onMouse(e) {
-    const col = e.target.closest(".tl-col");
-    const row = e.target.closest(".tl-row[data-row]");
+  onTap(e) {
+    const press = this.press;
+    this.press = null;
+    if (!press) return;
+    if (Math.abs(e.clientX - press.x) > 8 || Math.abs(e.clientY - press.y) > 8) return;
+    const col = press.target.closest(".tl-col");
+    const row = press.target.closest(".tl-row[data-row]");
     if (!col || !row) return;
     this.cursor.row = Number(row.dataset.row);
     this.cursor.track = Number(col.dataset.track);
@@ -196,7 +230,7 @@ export class Grid {
     fn(c);
     const p = this.pattern();
     if (isEmptyCell(c)) p.tracks[this.cursor.track][this.cursor.row] = null;
-    this.render();
+    this.refreshCell(this.cursor.row, this.cursor.track);
     if (this.onEdit) this.onEdit();
   }
 

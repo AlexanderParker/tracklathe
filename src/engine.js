@@ -9,7 +9,7 @@
 // This is the standard Web Audio lookahead loop: wake often, schedule ahead,
 // and let the audio clock place the notes.
 
-import { NOTE_OFF, patternAt, rowDuration } from "./song.js";
+import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=2";
 
 const TICK_MS = 25;          // how often we look
 const SCHEDULE_AHEAD = 0.12; // how far ahead we queue, in seconds

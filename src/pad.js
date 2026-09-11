@@ -12,7 +12,7 @@
 // It follows the cursor's column, because "what can I type here" is exactly
 // the question a tracker's columns raise, and the answer differs per column.
 
-import { COLS } from "./grid.js";
+import { COLS } from "./grid.js?v=2";
 
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 

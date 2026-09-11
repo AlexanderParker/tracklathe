@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js";
-import { Engine } from "./engine.js";
-import { Grid } from "./grid.js";
-import { Pad } from "./pad.js";
-import * as store from "./store.js";
+} from "./song.js?v=2";
+import { Engine } from "./engine.js?v=2";
+import { Grid } from "./grid.js?v=2";
+import { Pad } from "./pad.js?v=2";
+import * as store from "./store.js?v=2";
 
 const $ = (id) => document.getElementById(id);
 
