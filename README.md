@@ -22,6 +22,13 @@ Then open `http://localhost:8000`.
 It needs a server rather than opening the file directly, because the source
 is ES modules and browsers refuse to load those over `file://`.
 
+## Hearing something
+
+The Songs tab has **Load the demo song**: eight instruments from the zyn
+preset list, four patterns, a minute long. It is also the quickest way to see
+what the columns do -- the break pattern opens the bass filter a little more
+each bar with the `cut` column, and the lead's held notes use `rel`.
+
 ## Writing something
 
 Click a cell and type. `Z` to `M` are the lower octave and `Q` to `P` the
@@ -128,6 +135,7 @@ September 2026 or later. The bundled copy in `vendor/Z.js` is new enough.
 | `src/pad.js` | the on-screen input pad |
 | `src/store.js` | songs in browser storage |
 | `src/app.js` | tabs, transport, instruments, sequence, files |
+| `songs/demo.json` | the demo song |
 | `vendor/Z.js` | a build of zyn.js, copied from that repo |
 
 To update the synth, rebuild zyn (`npm run build` there) and copy its `Z.js`

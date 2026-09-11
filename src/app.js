@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=2";
-import { Engine } from "./engine.js?v=2";
-import { Grid } from "./grid.js?v=2";
-import { Pad } from "./pad.js?v=2";
-import * as store from "./store.js?v=2";
+} from "./song.js?v=3";
+import { Engine } from "./engine.js?v=3";
+import { Grid } from "./grid.js?v=3";
+import { Pad } from "./pad.js?v=3";
+import * as store from "./store.js?v=3";
 
 const $ = (id) => document.getElementById(id);
 
@@ -498,6 +498,17 @@ function init() {
   $("saveAs").addEventListener("click", saveToBrowser);
   $("exportBtn").addEventListener("click", exportFile);
   $("importBtn").addEventListener("click", () => $("fileInput").click());
+  $("demoBtn").addEventListener("click", async () => {
+    if (dirty && !confirm(`Discard unsaved changes to "${song.name}"?`)) return;
+    try {
+      const res = await fetch("songs/demo.json");
+      if (!res.ok) throw new Error(String(res.status));
+      adoptSong(await res.json(), "Loaded the demo. Press play.");
+      showTab("tracker");
+    } catch (err) {
+      setStatus("The demo song could not be fetched");
+    }
+  });
   $("fileInput").addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
