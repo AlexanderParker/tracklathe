@@ -19,7 +19,7 @@
 // in a background tab; a Worker's timer keeps going, and is not queued behind
 // the page's layout and paint the way a main-thread timer is.
 
-import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=4";
+import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=5";
 
 const TICK_MS = 20;           // how often the scheduler looks
 const SCHEDULE_AHEAD = 0.5;   // how far ahead it queues, in seconds
@@ -77,14 +77,14 @@ export class Engine {
   ensureAudio() {
     if (typeof Z === "undefined") return false;
     if (!Z.aC) Z.init();
-    // zyn keeps a small cache of effect nodes and, past a limit, disconnects
-    // the oldest half of them -- including the ones carrying notes that are
-    // still sounding. Eight instruments with a couple of oscillators each
-    // sit right at that limit, so a song would fall silent every few bars
-    // and come back as new nodes were built. Raise it out of reach: the
-    // nodes are gains and a handful of convolvers, and a song has a bounded
-    // set of them.
-    Z.maxFxNodes = 100000;
+    // zyn caches effect nodes per instrument config and drops idle ones past
+    // a limit. Eight instruments with a couple of oscillators each sit right
+    // at its default of fifty, and a dropped node is a convolver to rebuild
+    // in the middle of a bar; give a song room to keep all of its own. It
+    // must not be unbounded: every seed rolled during playback leaves a
+    // convolver and a delay loop behind, and each one costs the audio
+    // thread something forever until it is dropped.
+    Z.maxFxNodes = 200;
     Z.warmUp();
     if (Z.aC.state === "suspended") Z.aC.resume();
     return true;
