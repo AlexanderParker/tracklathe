@@ -32,6 +32,7 @@ export class Grid {
     this.step = 1;            // rows the cursor advances after entry
     this.playRow = -1;
     this.onEdit = null;       // () => void, for marking the song dirty
+    this.onCursor = null;     // () => void, so the input pad can follow
 
     this.root.tabIndex = 0;
     this.root.addEventListener("keydown", (e) => this.onKey(e));
@@ -164,8 +165,11 @@ export class Grid {
     this.cursor.row = Number(row.dataset.row);
     this.cursor.track = Number(col.dataset.track);
     this.cursor.col = Number(col.dataset.col);
+    this.typingAt = null;
+    this.cutSign = null;
     this.paintCursor();
-    this.root.focus();
+    this.root.focus({ preventScroll: true });
+    if (this.onCursor) this.onCursor();
   }
 
   move(dRow, dTrack, dCol) {
@@ -183,6 +187,7 @@ export class Grid {
     this.typingAt = null;
     this.cutSign = null;
     this.paintCursor();
+    if (this.onCursor) this.onCursor();
   }
 
   edit(fn) {
@@ -212,17 +217,11 @@ export class Grid {
     });
 
     if (k === "Delete" || k === "Backspace")
-      return this.consume(e, () => {
-        this.edit((c) => { for (const col of COLS) c[col] = null; });
-        this.move(this.step, 0, 0);
-      });
+      return this.consume(e, () => this.clearCell());
 
     // Note off, the tracker convention.
     if (k === "`" || k === "'")
-      return this.consume(e, () => {
-        this.edit((c) => { c.note = NOTE_OFF; });
-        this.move(this.step, 0, 0);
-      });
+      return this.consume(e, () => this.typeNoteOff());
 
     const isNote = this.cursor.col === 0;
     if (isNote && lower in KEYMAP && !e.ctrlKey && !e.altKey)
@@ -231,15 +230,9 @@ export class Grid {
     if (!isNote && /^[0-9]$/.test(k) && !e.ctrlKey)
       return this.consume(e, () => this.typeDigit(Number(k)));
 
-    // The cut column is signed, so it needs a way to say "down". The sign is
-    // remembered for the digits that follow, because negating an empty cell
-    // gives -0, and -0 is not less than zero -- which silently dropped the
-    // minus off everything typed after it.
+    // The cut column is signed, so it needs a way to say "down".
     if (!isNote && COLS[this.cursor.col] === "cut" && (k === "-" || k === "+"))
-      return this.consume(e, () => {
-        this.cutSign = k === "-" ? -1 : 1;
-        this.edit((c) => { c.cut = this.cutSign * Math.abs(c.cut ?? 0); });
-      });
+      return this.consume(e, () => this.setCutSign(k === "-" ? -1 : 1));
   }
 
   consume(e, fn) {
@@ -247,6 +240,28 @@ export class Grid {
     e.stopPropagation();
     fn();
     return true;
+  }
+
+  // Everything below is called by BOTH the keyboard and the on-screen pad.
+  // Routing the two through one set of actions is what stops the pad
+  // becoming a second, subtly different editor.
+
+  clearCell() {
+    this.edit((c) => { for (const col of COLS) c[col] = null; });
+    this.move(this.step, 0, 0);
+  }
+
+  typeNoteOff() {
+    this.edit((c) => { c.note = NOTE_OFF; });
+    this.move(this.step, 0, 0);
+  }
+
+  // The sign is remembered for the digits that follow, because negating an
+  // empty cell gives -0, and -0 is not less than zero -- which silently
+  // dropped the minus off everything typed after it.
+  setCutSign(sign) {
+    this.cutSign = sign;
+    this.edit((c) => { c.cut = sign * Math.abs(c.cut ?? 0); });
   }
 
   typeNote(semi) {

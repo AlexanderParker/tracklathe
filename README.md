@@ -28,12 +28,18 @@ Click a cell and type. `Z` to `M` are the lower octave and `Q` to `P` the
 upper, laid out as piano keys — the layout trackers have used since Ultimate
 Soundtracker. `` ` `` is a note off. Space plays and stops.
 
+On a phone, tap a cell and use the pad under the grid instead. It has the
+notes, the digits, a d-pad and an octave control, and it changes to suit
+whichever column the cursor is in. There is no hidden text field anywhere in
+the editor, so the soft keyboard never appears over the pattern you are
+editing.
+
 Each track has six columns:
 
 | Column | Meaning |
 |---|---|
 | note | `C-4` is middle C. `OFF` stops whatever the track is holding |
-| inst | which instrument, from the table on the right |
+| inst | which instrument, from the Instruments tab |
 | vel | how hard, 64 for unity |
 | rel | scales this note's release, 25 for unity |
 | cut | shifts this note's filter cutoff, in semitones |
@@ -59,6 +65,17 @@ Patterns are written once and arranged in the sequence list, so a chorus that
 appears four times is stored once. The pattern shown follows the playhead
 only when it is the one sounding, because a highlight on a pattern you are
 not hearing is a lie.
+
+### Keeping a song
+
+**Save** puts the song in this browser's storage, on this device: it is still
+there when you come back. The Songs tab lists what is saved, and edits are
+autosaved to a separate slot, so closing the tab by accident does not cost
+the session.
+
+Browser storage does not travel. **Export** writes the same song as a JSON
+file, which is what to use to move it to another machine, keep it in a repo,
+or send it to somebody.
 
 ## The file format
 
@@ -108,7 +125,9 @@ September 2026 or later. The bundled copy in `vendor/Z.js` is new enough.
 | `src/song.js` | the data model, and JSON in and out |
 | `src/engine.js` | the scheduler and the bridge to zyn |
 | `src/grid.js` | the pattern editor |
-| `src/app.js` | transport, instruments, sequence, files |
+| `src/pad.js` | the on-screen input pad |
+| `src/store.js` | songs in browser storage |
+| `src/app.js` | tabs, transport, instruments, sequence, files |
 | `vendor/Z.js` | a build of zyn.js, copied from that repo |
 
 To update the synth, rebuild zyn (`npm run build` there) and copy its `Z.js`

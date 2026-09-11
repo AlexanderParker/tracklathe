@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
     <title>Tracklathe</title>
     <link rel="stylesheet" href="style.css" />
     <!-- Inline, so there is no favicon round trip and no 404 in the console. -->
@@ -14,72 +15,131 @@
       <div class="brand">Tracklathe</div>
 
       <div class="group">
-        <button id="playBtn" class="btn-primary" title="Play or stop (Space)">▶ Play</button>
+        <button id="playBtn" class="btn-primary" title="Play or stop (Space)">▶</button>
         <button id="rewindBtn" class="btn" title="Back to the start">⏮</button>
       </div>
 
       <div class="group">
-        <label>Song <input id="songName" type="text" value="Untitled" size="14" /></label>
+        <label class="song-label">Song
+          <input id="songName" type="text" value="Untitled" /></label>
         <label>BPM <input id="bpm" type="number" value="125" min="20" max="400" /></label>
-        <label title="Rows per beat">Rows/beat <input id="rpb" type="number" value="4" min="1" max="16" /></label>
-      </div>
-
-      <div class="group">
-        <label title="Octaves added to notes you type">Oct
-          <input id="octave" type="number" value="0" min="-3" max="3" /></label>
-        <label title="Rows the cursor moves after entering a note">Step
-          <input id="step" type="number" value="1" min="0" max="16" /></label>
       </div>
 
       <div class="group right">
-        <button id="saveBtn" class="btn">Save</button>
-        <button id="loadBtn" class="btn">Load</button>
-        <input id="fileInput" type="file" accept=".json,application/json" hidden />
+        <button id="quickSave" class="btn" title="Save to this browser">Save</button>
       </div>
     </header>
 
+    <nav class="tabs" role="tablist">
+      <button class="tab sel" data-tab="tracker" role="tab">Tracker</button>
+      <button class="tab" data-tab="instruments" role="tab">Instruments</button>
+      <button class="tab" data-tab="patterns" role="tab">Patterns</button>
+      <button class="tab" data-tab="songs" role="tab">Songs</button>
+      <button class="tab" data-tab="help" role="tab">Help</button>
+    </nav>
+
     <main>
-      <section class="panel grid-panel">
+      <!-- ------------------------------------------------------ tracker -->
+      <section id="tab-tracker" class="tab-panel sel" role="tabpanel">
         <div id="grid" class="grid" role="grid" aria-label="Pattern editor"></div>
+        <div id="pad" class="pad" aria-label="Input pad"></div>
       </section>
 
-      <aside class="side">
-        <section class="panel">
+      <!-- -------------------------------------------------- instruments -->
+      <section id="tab-instruments" class="tab-panel" role="tabpanel">
+        <div class="panel">
           <h2>Instruments <button id="addInst" class="btn-mini" title="Add an instrument">+</button></h2>
           <div id="instList" class="inst-list"></div>
           <p class="hint">
             Every instrument is generated from its seed. Roll the dice, or paste
-            a seed from <a href="https://alexanderparker.github.io/zyn/" target="_blank" rel="noreferrer">the zyn demo</a>.
+            a seed from <a href="https://alexanderparker.github.io/zyn/" target="_blank" rel="noreferrer">the zyn demo</a>
+            or from <a href="https://github.com/AlexanderParker/seedlathe" target="_blank" rel="noreferrer">Seedlathe</a>.
+            The same number sounds the same in all three.
           </p>
-        </section>
+        </div>
+      </section>
 
-        <section class="panel">
-          <h2>Patterns
-            <button id="addPattern" class="btn-mini" title="New pattern">+</button>
-          </h2>
-          <h3>Sequence
-            <button id="addSeq" class="btn-mini" title="Append the current pattern">+</button>
-          </h3>
+      <!-- ----------------------------------------------------- patterns -->
+      <section id="tab-patterns" class="tab-panel" role="tabpanel">
+        <div class="panel">
+          <h2>Patterns <button id="addPattern" class="btn-mini" title="New pattern">+</button></h2>
+          <div id="patList" class="pat-list"></div>
+        </div>
+        <div class="panel">
+          <h2>Sequence <button id="addSeq" class="btn-mini" title="Append the pattern being edited">+</button></h2>
           <div id="seqList" class="seq-list"></div>
-        </section>
+          <p class="hint">
+            The order the patterns play in. A chorus that appears four times is
+            written once and listed four times.
+          </p>
+        </div>
+        <div class="panel">
+          <h2>Timing</h2>
+          <label>Rows per beat <input id="rpb" type="number" value="4" min="1" max="16" /></label>
+          <label class="stacked">Pattern length
+            <input id="patLength" type="number" value="64" min="1" max="256" /></label>
+        </div>
+      </section>
 
-        <section class="panel">
+      <!-- -------------------------------------------------------- songs -->
+      <section id="tab-songs" class="tab-panel" role="tabpanel">
+        <div class="panel">
+          <h2>Saved in this browser</h2>
+          <div class="row-actions">
+            <button id="saveAs" class="btn-primary">Save</button>
+            <span id="storeNote" class="hint inline"></span>
+          </div>
+          <div id="songList" class="song-list"></div>
+        </div>
+        <div class="panel">
+          <h2>Files</h2>
+          <div class="row-actions">
+            <button id="exportBtn" class="btn">Export to a file</button>
+            <button id="importBtn" class="btn">Import a file</button>
+            <input id="fileInput" type="file" accept=".json,application/json" hidden />
+          </div>
+          <p class="hint">
+            Browser storage lives on this device and this browser only. Export
+            a file to move a song somewhere else or keep a copy.
+          </p>
+        </div>
+      </section>
+
+      <!-- --------------------------------------------------------- help -->
+      <section id="tab-help" class="tab-panel" role="tabpanel">
+        <div class="panel">
           <h2>Keys</h2>
           <dl class="keys">
             <dt>Z–M, Q–P</dt><dd>notes, lower and upper octave</dd>
             <dt>`</dt><dd>note off</dd>
             <dt>0–9</dt><dd>digits, in the numeric columns</dd>
+            <dt>− +</dt><dd>sign, in the filter column</dd>
             <dt>Tab</dt><dd>next track</dd>
             <dt>Del</dt><dd>clear the cell</dd>
             <dt>Space</dt><dd>play / stop</dd>
           </dl>
           <p class="hint">
-            Columns per track: note, instrument, velocity, release, filter,
-            volume. Velocity and volume are 64 for unity. Release scales the
-            note's own release, and filter shifts its cutoff in semitones.
+            On a phone there is no typing keyboard to offer, so use the pad
+            under the grid. It does everything the keys do, and follows
+            whichever column the cursor is in.
           </p>
-        </section>
-      </aside>
+        </div>
+        <div class="panel">
+          <h2>Columns</h2>
+          <dl class="keys">
+            <dt>note</dt><dd><code>C-4</code> is middle C, <code>OFF</code> stops the track</dd>
+            <dt>inst</dt><dd>which instrument, from the Instruments tab</dd>
+            <dt>vel</dt><dd>how hard it is struck, 64 for unity</dd>
+            <dt>rel</dt><dd>scales this note's release, 25 for unity</dd>
+            <dt>cut</dt><dd>shifts this note's filter, in semitones</dd>
+            <dt>vol</dt><dd>level, 64 for unity</dd>
+          </dl>
+          <p class="hint">
+            A track is monophonic: the next note cuts the one before it, which
+            is what lets a held sound end where you say.
+          </p>
+        </div>
+      </section>
     </main>
 
     <footer class="bar">
