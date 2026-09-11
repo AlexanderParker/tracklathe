@@ -2,6 +2,8 @@
 
 A tracker in the browser, where the instruments are numbers.
 
+**[Open it](https://alexanderparker.github.io/tracklathe/)** — no install.
+
 Built on [zyn.js](https://github.com/AlexanderParker/zyn), a synthesizer that
 generates a complete instrument from a single integer. A Tracklathe song is
 therefore just notes plus a handful of seeds — no samples, no soundfonts, no
