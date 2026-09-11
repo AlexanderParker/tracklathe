@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tracklathe</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Inline, so there is no favicon round trip and no 404 in the console. -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2314161a%27/%3E%3Cg fill=%27%2378beff%27%3E%3Crect x=%273%27 y=%273%27 width=%2710%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%277.2%27 width=%276%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%2711.4%27 width=%278%27 height=%271.6%27/%3E%3C/g%3E%3C/svg%3E" />
+    <script src="./vendor/Z.js"></script>
+  </head>
+  <body>
+    <header class="bar">
+      <div class="brand">Tracklathe</div>
+
+      <div class="group">
+        <button id="playBtn" class="btn-primary" title="Play or stop (Space)">▶ Play</button>
+        <button id="rewindBtn" class="btn" title="Back to the start">⏮</button>
+      </div>
+
+      <div class="group">
+        <label>Song <input id="songName" type="text" value="Untitled" size="14" /></label>
+        <label>BPM <input id="bpm" type="number" value="125" min="20" max="400" /></label>
+        <label title="Rows per beat">Rows/beat <input id="rpb" type="number" value="4" min="1" max="16" /></label>
+      </div>
+
+      <div class="group">
+        <label title="Octaves added to notes you type">Oct
+          <input id="octave" type="number" value="0" min="-3" max="3" /></label>
+        <label title="Rows the cursor moves after entering a note">Step
+          <input id="step" type="number" value="1" min="0" max="16" /></label>
+      </div>
+
+      <div class="group right">
+        <button id="saveBtn" class="btn">Save</button>
+        <button id="loadBtn" class="btn">Load</button>
+        <input id="fileInput" type="file" accept=".json,application/json" hidden />
+      </div>
+    </header>
+
+    <main>
+      <section class="panel grid-panel">
+        <div id="grid" class="grid" role="grid" aria-label="Pattern editor"></div>
+      </section>
+
+      <aside class="side">
+        <section class="panel">
+          <h2>Instruments <button id="addInst" class="btn-mini" title="Add an instrument">+</button></h2>
+          <div id="instList" class="inst-list"></div>
+          <p class="hint">
+            Every instrument is generated from its seed. Roll the dice, or paste
+            a seed from <a href="https://alexanderparker.github.io/zyn/" target="_blank" rel="noreferrer">the zyn demo</a>.
+          </p>
+        </section>
+
+        <section class="panel">
+          <h2>Patterns
+            <button id="addPattern" class="btn-mini" title="New pattern">+</button>
+          </h2>
+          <h3>Sequence
+            <button id="addSeq" class="btn-mini" title="Append the current pattern">+</button>
+          </h3>
+          <div id="seqList" class="seq-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Keys</h2>
+          <dl class="keys">
+            <dt>Z–M, Q–P</dt><dd>notes, lower and upper octave</dd>
+            <dt>`</dt><dd>note off</dd>
+            <dt>0–9</dt><dd>digits, in the numeric columns</dd>
+            <dt>Tab</dt><dd>next track</dd>
+            <dt>Del</dt><dd>clear the cell</dd>
+            <dt>Space</dt><dd>play / stop</dd>
+          </dl>
+          <p class="hint">
+            Columns per track: note, instrument, velocity, release, filter,
+            volume. Velocity and volume are 64 for unity. Release scales the
+            note's own release, and filter shifts its cutoff in semitones.
+          </p>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="bar">
+      <span id="status" class="status"></span>
+    </footer>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
