@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=3";
-import { Engine } from "./engine.js?v=3";
-import { Grid } from "./grid.js?v=3";
-import { Pad } from "./pad.js?v=3";
-import * as store from "./store.js?v=3";
+} from "./song.js?v=4";
+import { Engine } from "./engine.js?v=4";
+import { Grid } from "./grid.js?v=4";
+import { Pad } from "./pad.js?v=4";
+import * as store from "./store.js?v=4";
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,14 +54,28 @@ function showTab(name) {
 function play() {
   engine.song = song;
   engine.start();
+  if (!engine.playing) return;
   $("playBtn").textContent = "■";
+  // The display is driven from here, not from the scheduler: each frame
+  // asks the engine which row the listener is hearing at this audio time
+  // and draws that. Audio is queued a quarter second ahead of this and does
+  // not wait for it.
+  const frame = () => {
+    if (!engine.playing) return;
+    const pos = engine.positionAt(Z.aC.currentTime);
+    grid.showPlayhead(pos.seq, pos.row);
+    frameHandle = requestAnimationFrame(frame);
+  };
+  frameHandle = requestAnimationFrame(frame);
 }
+
+let frameHandle = 0;
 
 function stop() {
   engine.stop();
+  cancelAnimationFrame(frameHandle);
   $("playBtn").textContent = "▶";
-  grid.playRow = -1;
-  grid.paintCursor();
+  grid.clearPlayhead();
 }
 
 function togglePlay() {
@@ -344,7 +358,6 @@ function adoptSong(json, message) {
   stop();
   song = loaded;
   engine = new Engine(song);
-  engine.onRow = (seq, row) => grid.setPlayRow(seq, row);
   grid.song = song;
   grid.engine = engine;
   grid.patternIndex = 0;
@@ -412,9 +425,14 @@ function init() {
   grid.currentInstrument = 0;
   grid.onEdit = () => { markDirty(); pad.sync(); };
   grid.onCursor = () => pad.sync();
-  engine.onRow = (seq, row) => grid.setPlayRow(seq, row);
+  grid.onPattern = (idx) => {
+    $("patLength").value = String(song.patterns[idx].length);
+  };
 
   pad = new Pad($("pad"), grid);
+  // For poking at from the console: the engine's lateRows counter is the
+  // first thing to read when playback misbehaves.
+  window.tracklathe = { get engine() { return engine; }, get grid() { return grid; } };
   grid.render();
   renderInstruments();
   renderPatterns();
@@ -426,7 +444,8 @@ function init() {
   $("playBtn").addEventListener("click", togglePlay);
   $("rewindBtn").addEventListener("click", () => {
     engine.rewind();
-    grid.setPlayRow(0, 0);
+    if (engine.playing) { stop(); play(); }
+    else grid.showPlayhead(0, 0), grid.clearPlayhead();
   });
 
   $("songName").addEventListener("input", () => {

@@ -24,10 +24,11 @@ is ES modules and browsers refuse to load those over `file://`.
 
 ## Hearing something
 
-The Songs tab has **Load the demo song**: eight instruments from the zyn
-preset list, four patterns, a minute long. It is also the quickest way to see
-what the columns do -- the break pattern opens the bass filter a little more
-each bar with the `cut` column, and the lead's held notes use `rel`.
+The Songs tab has **Load the demo song**: a minute and a quarter in E minor,
+six patterns, eight instruments. It is also the quickest way to see what the
+columns do. The arpeggio is one long filter sweep written into the `cut`
+column, the break holds a bass note per bar and opens it a little more each
+time, the fills ramp `vel`, and the bell's long notes use `rel`.
 
 ## Writing something
 
@@ -115,15 +116,24 @@ pattern rather than the song.
 
 ## How it keeps time
 
-Rows are scheduled against the AudioContext clock, not fired from a timer. A
-25 ms interval decides *when to look*; every note it finds is handed to zyn
-with an explicit start time about 120 ms ahead. `setTimeout` on its own
-jitters by whole milliseconds and stops being called at all in a background
-tab, and on a tracker row either is audible as a flam.
+Two clocks, kept apart the way a game keeps physics apart from rendering.
 
-This needed a small addition to zyn — `play`, `noteOn` and `render` take an
-optional AudioContext time — so Tracklathe requires a zyn build from
-September 2026 or later. The bundled copy in `vendor/Z.js` is new enough.
+The audio side runs off the AudioContext clock. A timer in a Worker wakes
+the scheduler every 20 ms; each wake it queues every row due in the next
+half second, handing each note -- and each note's end -- to zyn with an
+explicit time. From then on the audio thread owns them. The page can stall
+for a pattern switch or a garbage collection and nothing is heard, because
+everything due in that window was queued before the stall.
+
+The display never hears from the scheduler. Once per animation frame it asks
+which row is sounding at the current audio time and draws that, switching
+pattern and scrolling as the song moves. No DOM work happens in the
+scheduler and no audio work happens in the frame.
+
+This needed two small additions to zyn -- `play`, `noteOn`, `render` and
+`noteOff` take an optional AudioContext time -- so Tracklathe requires a zyn
+build from September 2026 or later. The bundled copy in `vendor/Z.js` is new
+enough.
 
 ## Layout
 

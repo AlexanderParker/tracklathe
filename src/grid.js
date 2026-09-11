@@ -6,7 +6,7 @@
 // cursor, selection and text rendering are things the browser already does
 // correctly.
 
-import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=3";
+import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=4";
 
 // Which column of a track the cursor is in.
 export const COLS = ["note", "inst", "vel", "rel", "cut", "vol"];
@@ -178,12 +178,38 @@ export class Grid {
       this.root.scrollTop += r.bottom - (box.bottom - 40);
   }
 
-  setPlayRow(seqIndex, row) {
+  // Called once per animation frame while playing. Follows the song: when
+  // the sequence moves to another pattern the grid switches to it, and the
+  // sounding row is kept in the middle of the view, the way every tracker
+  // since the Amiga has scrolled.
+  showPlayhead(seqIndex, row) {
     const idx = this.song.sequence[seqIndex];
-    // Only follow the playhead when the pattern on screen is the one
-    // sounding, or the highlight would be a lie.
-    this.playRow = idx === this.patternIndex ? row : -1;
+    if (idx !== undefined && idx !== this.patternIndex) {
+      this.patternIndex = idx;
+      if (this.cursor.row >= this.pattern().length) this.cursor.row = 0;
+      this.render();
+      if (this.onPattern) this.onPattern(idx);
+    }
+    if (row === this.playRow) return;
+    this.playRow = row;
     this.paintCursor();
+    const el = this.rows && this.rows[row];
+    if (el) this.scrollToCentre(el);
+  }
+
+  clearPlayhead() {
+    this.playRow = -1;
+    this.paintCursor();
+  }
+
+  scrollToCentre(row) {
+    const box = this.root.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    const target = box.top + box.height * 0.4;
+    const delta = r.top - target;
+    // Small drift is corrected each frame; a jump (a new pattern) lands at
+    // once rather than easing, which would read as the display lagging.
+    if (Math.abs(delta) > 2) this.root.scrollTop += delta;
   }
 
   // -------------------------------------------------------------- input
