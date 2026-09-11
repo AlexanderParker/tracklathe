@@ -19,7 +19,7 @@
 // in a background tab; a Worker's timer keeps going, and is not queued behind
 // the page's layout and paint the way a main-thread timer is.
 
-import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=5";
+import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=6";
 
 const TICK_MS = 20;           // how often the scheduler looks
 const SCHEDULE_AHEAD = 0.5;   // how far ahead it queues, in seconds
@@ -77,14 +77,16 @@ export class Engine {
   ensureAudio() {
     if (typeof Z === "undefined") return false;
     if (!Z.aC) Z.init();
-    // zyn caches effect nodes per instrument config and drops idle ones past
-    // a limit. Eight instruments with a couple of oscillators each sit right
-    // at its default of fifty, and a dropped node is a convolver to rebuild
-    // in the middle of a bar; give a song room to keep all of its own. It
-    // must not be unbounded: every seed rolled during playback leaves a
-    // convolver and a delay loop behind, and each one costs the audio
-    // thread something forever until it is dropped.
-    Z.maxFxNodes = 200;
+    // zyn caches effect nodes per instrument config and drops the least
+    // recently used idle ones past a limit. Eight instruments with a couple
+    // of oscillators each sit right at its default of fifty, and a dropped
+    // node is a convolver to rebuild in the middle of a bar; give a song
+    // room to keep all of its own. It must not be unbounded: every seed
+    // rolled during playback leaves a convolver and a delay loop behind,
+    // each costing the audio thread something until it is dropped, and at
+    // a thousand of them the audio clock was measured falling seconds
+    // behind real time.
+    Z.maxFxNodes = 96;
     Z.warmUp();
     if (Z.aC.state === "suspended") Z.aC.resume();
     return true;

@@ -151,6 +151,13 @@ enough.
 To update the synth, rebuild zyn (`npm run build` there) and copy its `Z.js`
 over `vendor/Z.js`.
 
+After any change to the scripts, run `python tools/bump.py <n>` with the next
+build number. It rewrites the `?v=` cache keys, the `BUILD` constant and
+`version.json` together. GitHub Pages caches every file for ten minutes, so
+without the keys a reload can pair a fresh page with stale scripts; the page
+compares its build against `version.json` on load and offers a reload when
+they differ.
+
 ## How this was built
 
 zyn.js came first, and its synth core was written by hand. Tracklathe was

@@ -2,13 +2,19 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=5";
-import { Engine } from "./engine.js?v=5";
-import { Grid } from "./grid.js?v=5";
-import { Pad } from "./pad.js?v=5";
-import * as store from "./store.js?v=5";
+} from "./song.js?v=6";
+import { Engine } from "./engine.js?v=6";
+import { Grid } from "./grid.js?v=6";
+import { Pad } from "./pad.js?v=6";
+import * as store from "./store.js?v=6";
 
 const $ = (id) => document.getElementById(id);
+
+// Must match version.json and the ?v= cache keys. GitHub Pages caches
+// every file for ten minutes, so a reload inside that window can pair a
+// fresh page with stale scripts, or the reverse -- and the result is a
+// page that half works, which is worse than one that says so.
+const BUILD = 6;
 
 let song = makeSong();
 let engine = new Engine(song);
@@ -418,6 +424,28 @@ function offerRestore() {
   document.body.insertBefore(bar, document.querySelector("main"));
 }
 
+// Ask the server, bypassing every cache, which build it is serving; if
+// that is not the one running, offer a reload. Failure is silence: this
+// is a courtesy, not a gate.
+async function checkForNewerBuild() {
+  try {
+    const res = await fetch("version.json", { cache: "no-store" });
+    if (!res.ok) return;
+    const { v } = await res.json();
+    if (!Number.isInteger(v) || v === BUILD) return;
+    const bar = document.createElement("div");
+    bar.className = "restore";
+    const text = document.createElement("span");
+    text.textContent = `A newer Tracklathe is available (build ${v}; this is ${BUILD}).`;
+    const btn = document.createElement("button");
+    btn.className = "btn-primary";
+    btn.textContent = "Reload";
+    btn.addEventListener("click", () => location.reload());
+    bar.append(text, btn);
+    document.body.insertBefore(bar, document.querySelector("main"));
+  } catch (e) { /* offline, or a file:// page */ }
+}
+
 // ------------------------------------------------------------------ init
 
 function init() {
@@ -559,6 +587,7 @@ function init() {
   });
 
   offerRestore();
+  checkForNewerBuild();
 
   $("grid").focus({ preventScroll: true });
   if (!$("status").textContent)
