@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=9";
-import { Engine } from "./engine.js?v=9";
-import { Grid } from "./grid.js?v=9";
-import { Pad } from "./pad.js?v=9";
-import * as store from "./store.js?v=9";
+} from "./song.js?v=10";
+import { Engine } from "./engine.js?v=10";
+import { Grid } from "./grid.js?v=10";
+import { Pad } from "./pad.js?v=10";
+import * as store from "./store.js?v=10";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 // every file for ten minutes, so a reload inside that window can pair a
 // fresh page with stale scripts, or the reverse -- and the result is a
 // page that half works, which is worse than one that says so.
-const BUILD = 9;
+const BUILD = 10;
 
 let song = makeSong();
 let engine = new Engine(song);
@@ -60,6 +60,10 @@ function showTab(name) {
 
 function play() {
   engine.song = song;
+  // From the cursor, in the pattern on screen -- if that pattern is in the
+  // sequence at all. If it is not, play from wherever playback last was.
+  const seq = sequenceIndexShowing();
+  if (seq >= 0) engine.seek(seq, grid.cursor.row);
   engine.start();
   if (!engine.playing) return;
   $("playBtn").textContent = "■";

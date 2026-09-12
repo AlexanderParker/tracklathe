@@ -6,7 +6,7 @@
 // cursor, selection and text rendering are things the browser already does
 // correctly.
 
-import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=9";
+import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=10";
 
 // Which column of a track the cursor is in.
 export const COLS = ["note", "inst", "vel", "rel", "cut", "vol"];
