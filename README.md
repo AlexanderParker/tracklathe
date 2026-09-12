@@ -42,6 +42,12 @@ whichever column the cursor is in. There is no hidden text field anywhere in
 the editor, so the soft keyboard never appears over the pattern you are
 editing.
 
+Blocks work the way Impulse Tracker and Scream Tracker taught everyone:
+Shift+arrows select, Ctrl+C/X/V copy, cut and paste at the cursor, Ctrl+I
+(or Alt+X) interpolates the selected columns from the first row to the
+last, Ctrl+Up/Down nudges a value, Alt+Q/A/W/S transposes notes, and
+Ctrl+Z undoes. The Help tab lists them all.
+
 Each track has six columns:
 
 | Column | Meaning |

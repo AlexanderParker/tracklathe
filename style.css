@@ -267,6 +267,8 @@ main { flex: 1 1 auto; display: flex; min-height: 0; }
 .tl-playing { background: #26384d; }
 
 .tl-cursor { background: var(--accent); color: #101216; border-radius: 2px; }
+.tl-sel { background: #2f4d6e; color: #e6f0fa; }
+.tl-sel.tl-empty { color: #8fa6bf; }
 
 /* ----------------------------------------------------------- the pad */
 

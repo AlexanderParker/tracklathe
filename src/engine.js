@@ -19,7 +19,7 @@
 // in a background tab; a Worker's timer keeps going, and is not queued behind
 // the page's layout and paint the way a main-thread timer is.
 
-import { NOTE_OFF, rowDuration } from "./song.js?v=12";
+import { NOTE_OFF, rowDuration } from "./song.js?v=13";
 
 const TICK_MS = 20;           // how often the scheduler looks
 const SCHEDULE_AHEAD = 0.5;   // how far ahead it queues, in seconds
