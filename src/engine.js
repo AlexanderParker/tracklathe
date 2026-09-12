@@ -19,7 +19,7 @@
 // in a background tab; a Worker's timer keeps going, and is not queued behind
 // the page's layout and paint the way a main-thread timer is.
 
-import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=6";
+import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=7";
 
 const TICK_MS = 20;           // how often the scheduler looks
 const SCHEDULE_AHEAD = 0.5;   // how far ahead it queues, in seconds
@@ -64,10 +64,6 @@ export class Engine {
     // regenerating a five-oscillator patch on every note would be the most
     // expensive thing in the loop by a wide margin.
     this.instCache = new Map();
-    // Per-row variants of an instrument, keyed on what the row changed.
-    // zyn keys its effect nodes on the instrument config, so a fresh copy
-    // per note would mean a fresh set of nodes per note.
-    this.voiceCache = new Map();
   }
 
   ready() {
@@ -107,55 +103,25 @@ export class Engine {
 
   clearCache() {
     this.instCache.clear();
-    this.voiceCache.clear();
   }
 
-  // A per-note copy of the instrument with the row's own filter and release
-  // applied.
+  // The row's own filter and release, as per-note options for zyn.
   //
-  // Both are done by editing the instrument rather than by a live control,
-  // because a live control in zyn is global: it would bend every sounding
-  // note on every track, and a tracker column has to mean "this note". The
-  // filter is multiplicative on the envelope, which is the same thing a
-  // detune in cents does to a biquad, and the release scales the gain
-  // envelope's own R.
-  voiceFor(slot, cell) {
-    const base = this.instrumentFor(slot);
-    if (!base) return null;
-
-    const cut = cell.cut ?? 0;
+  // These used to be done by editing a copy of the instrument, and that was
+  // the thing that killed playback: zyn keys its effect nodes on the
+  // instrument config, so every distinct cut value was a new instrument to
+  // it, with its own nodes. An arpeggio sweeping the filter across sixty-four
+  // rows minted sixty-four instruments a pattern and flooded the cache; the
+  // trim then evicted the reverbs of everything else, which were rebuilt on
+  // their next note, in the middle of the bar, until the audio thread gave
+  // up. Now the instrument is the same object for every note and zyn applies
+  // the offsets to the note's own nodes.
+  noteOptions(cell) {
     const rel = cell.rel;
-    if (!cut && (rel === null || rel === undefined)) return base;
-
-    const key = `${this.song.instruments[slot].seed}:${cut}:${rel ?? ""}`;
-    const cached = this.voiceCache.get(key);
-    if (cached) return cached;
-
-    // Shallow per-oscillator copy: only the two envelopes are touched, and
-    // the fx sub-objects stay identical by value so zyn's node cache --
-    // which keys on the config -- shares the reverb with the original.
-    const ratio = Math.pow(2, cut / 12);
-    const relScale = rel === null || rel === undefined ? 1 : Math.max(rel, 1) / 25;
-
-    const copy = { ...base, oscs: base.oscs.map((o) => {
-      const osc = { ...o };
-      if (cut) {
-        const f = o.adsrFilter;
-        osc.adsrFilter = {
-          A: [f.A[0], Math.min(1, f.A[1] * ratio)],
-          D: [f.D[0], Math.min(1, f.D[1] * ratio)],
-          S: [f.S[0], Math.min(1, f.S[1] * ratio)],
-          R: [f.R[0], Math.min(1, f.R[1] * ratio)],
-        };
-      }
-      if (relScale !== 1) {
-        const g = o.adsrGain;
-        osc.adsrGain = { A: g.A, D: g.D, S: g.S, R: [g.R[0] * relScale, g.R[1]] };
-      }
-      return osc;
-    }) };
-    this.voiceCache.set(key, copy);
-    return copy;
+    return {
+      cutoff: cell.cut ?? 0,
+      release: rel === null || rel === undefined ? 1 : Math.max(rel, 1) / 25,
+    };
   }
 
   // Build every instrument's effect chain before the first row, silently.
@@ -256,7 +222,7 @@ export class Engine {
       const slot = cell.inst ?? 0;
       const def = this.song.instruments[slot];
       if (!def) return;
-      const inst = this.voiceFor(slot, cell);
+      const inst = this.instrumentFor(slot);
       if (!inst) return;
 
       // Velocity and the volume column multiply: velocity is how hard the
@@ -269,7 +235,7 @@ export class Engine {
 
       // Sustained, so the next note on this track can cut it. A one-shot
       // would ignore both OFF and the note after it.
-      const id = Z.noteOn(note, inst, gain, when);
+      const id = Z.noteOn(note, inst, gain, when, this.noteOptions(cell));
       this.held[track] = id;
     });
   }
@@ -300,10 +266,11 @@ export class Engine {
     if (!this.ensureAudio()) return;
     const def = this.song.instruments[slot];
     if (!def || cell.note === null || cell.note === NOTE_OFF) return;
-    const inst = this.voiceFor(slot, cell);
+    const inst = this.instrumentFor(slot);
     if (!inst) return;
     const vel = (cell.vel ?? 64) / 64;
     const vol = (cell.vol ?? 64) / 64;
-    Z.play(cell.note + def.octave * 12, inst, (def.volume / 100) * vel * vol);
+    Z.play(cell.note + def.octave * 12, inst, (def.volume / 100) * vel * vol,
+           null, this.noteOptions(cell));
   }
 }

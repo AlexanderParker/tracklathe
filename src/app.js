@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=6";
-import { Engine } from "./engine.js?v=6";
-import { Grid } from "./grid.js?v=6";
-import { Pad } from "./pad.js?v=6";
-import * as store from "./store.js?v=6";
+} from "./song.js?v=7";
+import { Engine } from "./engine.js?v=7";
+import { Grid } from "./grid.js?v=7";
+import { Pad } from "./pad.js?v=7";
+import * as store from "./store.js?v=7";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 // every file for ten minutes, so a reload inside that window can pair a
 // fresh page with stale scripts, or the reverse -- and the result is a
 // page that half works, which is worse than one that says so.
-const BUILD = 6;
+const BUILD = 7;
 
 let song = makeSong();
 let engine = new Engine(song);
