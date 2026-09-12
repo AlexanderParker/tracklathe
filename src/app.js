@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=11";
-import { Engine } from "./engine.js?v=11";
-import { Grid } from "./grid.js?v=11";
-import { Pad } from "./pad.js?v=11";
-import * as store from "./store.js?v=11";
+} from "./song.js?v=12";
+import { Engine } from "./engine.js?v=12";
+import { Grid } from "./grid.js?v=12";
+import { Pad } from "./pad.js?v=12";
+import * as store from "./store.js?v=12";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 // every file for ten minutes, so a reload inside that window can pair a
 // fresh page with stale scripts, or the reverse -- and the result is a
 // page that half works, which is worse than one that says so.
-const BUILD = 11;
+const BUILD = 12;
 
 let song = makeSong();
 let engine = new Engine(song);
@@ -50,7 +50,7 @@ function showTab(name) {
     grid.render();
     grid.root.focus({ preventScroll: true });
   }
-  if (name === "instruments") { renderInstruments(); ensureEditor(); }
+  if (name === "instruments") { renderInstruments(); syncEditor(); }
   if (name === "patterns") renderPatterns();
   if (name === "sequence") renderSequence();
   if (name === "songs") renderSongs();
@@ -194,32 +194,59 @@ function setTrackCount(n) {
 }
 
 // --------------------------------------------------------------- editor
+//
+// The zyn editor, in a frame, bound to the selected instrument. Selecting
+// an instrument shows it in the editor; anything done in the editor -- a
+// seed typed, rolled or found, the octave, the volume -- lands on the
+// instrument as it happens, and the next note played uses it.
 
 const EDITOR_ORIGIN = "https://alexanderparker.github.io";
-let editorSeed = null;
+let editorReady = false;     // the frame has posted its first state
+let editorPending = null;    // a state to show once it has
 
-function ensureEditor() {
-  const frame = $("zynFrame");
-  if (frame.src) return;
-  sendToEditor();
+function editorFrame() { return $("zynFrame"); }
+
+function selectedInstrument() {
+  const i = Math.min(grid.currentInstrument ?? 0, song.instruments.length - 1);
+  return { i, inst: song.instruments[i] };
 }
 
-function sendToEditor() {
-  const inst = song.instruments[grid.currentInstrument ?? 0];
-  const seed = inst ? inst.seed : 0;
-  $("zynFrame").src = `${EDITOR_ORIGIN}/zyn/?instrumentSeed=${seed}`;
-}
-
-function takeFromEditor() {
-  if (editorSeed === null) return;
-  const i = grid.currentInstrument ?? 0;
-  const inst = song.instruments[i];
+// Show the selected instrument in the editor. Loads the frame on first use
+// (only once the Instruments tab has been opened: the editor is a whole
+// page and nobody who never looks at it should pay for it).
+function syncEditor() {
+  const { i, inst } = selectedInstrument();
   if (!inst) return;
-  inst.seed = editorSeed >>> 0;
+  $("editorTarget").textContent = `editing ${String(i).padStart(2, "0")} ${inst.name}`;
+  const frame = editorFrame();
+  const state = { type: "zyn-load", seed: inst.seed, octave: inst.octave, volume: inst.volume / 100 };
+  if (!frame.src) {
+    if (!$("tab-instruments").classList.contains("sel")) return;
+    editorReady = false;
+    editorPending = state;
+    frame.src = `${EDITOR_ORIGIN}/zyn/?instrumentSeed=${inst.seed}`;
+    return;
+  }
+  if (!editorReady) { editorPending = state; return; }
+  frame.contentWindow.postMessage(state, EDITOR_ORIGIN);
+}
+
+// The editor changed: the selected instrument follows.
+function applyEditorState(d) {
+  const { i, inst } = selectedInstrument();
+  if (!inst) return;
+  const seed = Number(d.seed) >>> 0;
+  const octave = d.octave === undefined ? inst.octave : Math.max(-3, Math.min(3, Math.round(Number(d.octave)) || 0));
+  const volume = d.volume === undefined ? inst.volume
+    : Math.max(0, Math.min(500, Math.round(Number(d.volume) * 100)));
+  if (seed === inst.seed && octave === inst.octave && volume === inst.volume) return;
+  inst.seed = seed;
+  inst.octave = octave;
+  inst.volume = volume;
   engine.clearCache();
   renderInstruments();
   markDirty();
-  setStatus(`Instrument ${String(i).padStart(2, "0")} is now seed ${inst.seed}`);
+  setStatus(`Instrument ${String(i).padStart(2, "0")} is now seed ${seed}`);
 }
 
 function renderInstruments() {
@@ -254,6 +281,7 @@ function renderInstruments() {
       seed.value = String(inst.seed);
       engine.clearCache();
       markDirty();
+      if (i === grid.currentInstrument) syncEditor();
     });
     row.appendChild(seed);
 
@@ -262,6 +290,7 @@ function renderInstruments() {
       engine.clearCache();
       renderInstruments();
       markDirty();
+      if (i === grid.currentInstrument) syncEditor();
     }));
 
     for (const [key, label, min, max, unit] of [
@@ -301,6 +330,7 @@ function renderInstruments() {
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
       grid.currentInstrument = i;
       renderInstruments();
+      syncEditor();
     });
 
     list.appendChild(row);
@@ -572,6 +602,8 @@ function adoptSong(json, message) {
   renderPatterns();
   renderSequence();
   $("zynFrame").removeAttribute("src");
+  editorReady = false;
+  editorPending = null;
   dirty = false;
   $("songName").classList.remove("dirty");
   setStatus(message);
@@ -645,10 +677,11 @@ function init() {
   grid.currentInstrument = 0;
   grid.onEdit = () => { markDirty(); pad.sync(); };
   grid.onCursor = () => pad.sync();
-  grid.onInstrument = () => renderInstruments();
+  grid.onInstrument = () => { renderInstruments(); syncEditor(); };
   $("instSelect").addEventListener("change", () => {
     grid.currentInstrument = Number($("instSelect").value);
     renderInstruments();
+    syncEditor();
     grid.root.focus({ preventScroll: true });
   });
   $("patSelect").addEventListener("change", () => {
@@ -663,21 +696,27 @@ function init() {
   $("moreTracks").addEventListener("click", () => setTrackCount(song.patterns[0].tracks.length + 1));
   $("fewerTracks").addEventListener("click", () => setTrackCount(song.patterns[0].tracks.length - 1));
 
-  $("editorSend").addEventListener("click", sendToEditor);
-  $("editorTake").addEventListener("click", takeFromEditor);
   window.addEventListener("message", (e) => {
     if (e.origin !== EDITOR_ORIGIN) return;
     const d = e.data;
-    if (!d || d.type !== "zyn-seed" || !Number.isFinite(Number(d.seed))) return;
-    editorSeed = Number(d.seed);
-    $("editorSeed").textContent = `Editor is showing seed ${editorSeed}`;
-    $("editorTake").disabled = false;
+    if (!d || d.type !== "zyn-state" || !Number.isFinite(Number(d.seed))) return;
+    if (!editorReady) {
+      // First word from the frame: it is up. Show it what it should be
+      // showing, and ignore what it loaded with.
+      editorReady = true;
+      if (editorPending) { editorFrame().contentWindow.postMessage(editorPending, EDITOR_ORIGIN); editorPending = null; }
+      return;
+    }
+    applyEditorState(d);
   });
 
   pad = new Pad($("pad"), grid);
   // For poking at from the console: the engine's lateRows counter is the
   // first thing to read when playback misbehaves.
-  window.tracklathe = { get engine() { return engine; }, get grid() { return grid; } };
+  window.tracklathe = {
+    get engine() { return engine; }, get grid() { return grid; },
+    get editor() { return { ready: editorReady, pending: editorPending }; },
+  };
   grid.render();
   renderInstruments();
   renderPatterns();

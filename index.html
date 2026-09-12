@@ -9,10 +9,10 @@
          serves with a ten-minute max-age, and a browser that fetched the new
          page with the old scripts gets a page that does nothing. Bump it
          (here and in the src/ imports) whenever the files change. -->
-    <link rel="stylesheet" href="style.css?v=11" />
+    <link rel="stylesheet" href="style.css?v=12" />
     <!-- Inline, so there is no favicon round trip and no 404 in the console. -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2314161a%27/%3E%3Cg fill=%27%2378beff%27%3E%3Crect x=%273%27 y=%273%27 width=%2710%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%277.2%27 width=%276%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%2711.4%27 width=%278%27 height=%271.6%27/%3E%3C/g%3E%3C/svg%3E" />
-    <script src="./vendor/Z.js?v=11"></script>
+    <script src="./vendor/Z.js?v=12"></script>
   </head>
   <body>
     <header class="bar">
@@ -75,16 +75,14 @@
           </p>
         </div>
         <div class="panel">
-          <h2>Editor
-            <button id="editorSend" class="btn-mini" title="Open the selected instrument's seed in the editor">Open selected instrument</button>
-            <button id="editorTake" class="btn-mini" title="Give the selected instrument the seed showing in the editor" disabled>Use editor seed</button>
-            <span id="editorSeed" class="hint inline"></span>
-          </h2>
+          <h2>Editor <span id="editorTarget" class="hint inline"></span></h2>
           <iframe id="zynFrame" class="editor-frame" title="zyn instrument editor" loading="lazy" allow="autoplay"></iframe>
           <p class="hint">
             This is <a href="https://alexanderparker.github.io/zyn/" target="_blank" rel="noreferrer">the zyn editor</a>,
-            the same page, in a frame. Design or find a seed here, then
-            <em>Use editor seed</em> hands it to the selected instrument.
+            the same page, in a frame, and what it shows <em>is</em> the
+            selected instrument. Type a seed, roll, search, set the octave or
+            the volume: the instrument follows as you go, and the song hears
+            it on the next note.
           </p>
         </div>
       </section>
@@ -187,6 +185,6 @@
       <span id="status" class="status"></span>
     </footer>
 
-    <script type="module" src="./src/app.js?v=11"></script>
+    <script type="module" src="./src/app.js?v=12"></script>
   </body>
 </html>
