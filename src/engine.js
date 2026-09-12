@@ -19,7 +19,7 @@
 // in a background tab; a Worker's timer keeps going, and is not queued behind
 // the page's layout and paint the way a main-thread timer is.
 
-import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=10";
+import { NOTE_OFF, rowDuration } from "./song.js?v=11";
 
 const TICK_MS = 20;           // how often the scheduler looks
 const SCHEDULE_AHEAD = 0.5;   // how far ahead it queues, in seconds
@@ -52,8 +52,13 @@ export class Engine {
     // Rows queued but not yet audible, in time order. The display reads the
     // one whose time has come; nothing here calls out to it.
     this.pending = [];
-    this.position = { seq: 0, row: 0 };
+    this.position = { seq: 0, pat: song.sequence[0] ?? 0, row: 0 };
     this.onStop = null;
+
+    // A pattern played on its own, looping, regardless of the sequence --
+    // for hearing the one being written before it has a place in the song.
+    // null means play the sequence.
+    this.loopPattern = null;
 
     // Rows the scheduler found already in the past when it got to them:
     // the main thread was held longer than the lookahead. Zero in normal
@@ -150,7 +155,7 @@ export class Engine {
     this.lateRows = 0;
     this.prewarm();
     this.nextRowTime = Z.aC.currentTime + 0.08;
-    this.position = { seq: this.sequenceIndex, row: this.row };
+    this.position = { seq: this.sequenceIndex, pat: this.currentPatternIndex(), row: this.row };
 
     try {
       const blob = new Blob([WORKER_SRC], { type: "application/javascript" });
@@ -182,16 +187,26 @@ export class Engine {
   }
 
   rewind() {
-    this.seek(0, 0);
+    this.seek(this.loopPattern !== null ? this.sequenceIndex : 0, 0, this.loopPattern);
   }
 
-  // Move playback to a row. While playing, everything queued past this
-  // moment is abandoned and the tracks are released, so the jump is heard
-  // at once rather than after the lookahead has drained.
-  seek(seq, row) {
+  currentPatternIndex() {
+    return this.loopPattern !== null ? this.loopPattern : this.song.sequence[this.sequenceIndex];
+  }
+
+  currentPattern() {
+    return this.song.patterns[this.currentPatternIndex()] ?? null;
+  }
+
+  // Move playback to a row: of the sequence slot `seq`, or, with `loop`
+  // given, of that pattern on its own. While playing, everything queued
+  // past this moment is abandoned and the tracks are released, so the jump
+  // is heard at once rather than after the lookahead has drained.
+  seek(seq, row, loop = null) {
+    this.loopPattern = loop;
     this.sequenceIndex = seq;
     this.row = row;
-    this.position = { seq, row };
+    this.position = { seq, pat: this.currentPatternIndex(), row };
     if (!this.playing) return;
     this.pending = [];
     for (let t = 0; t < this.held.length; ++t) this.releaseTrack(t);
@@ -219,9 +234,9 @@ export class Engine {
   }
 
   scheduleRow(when) {
-    const pattern = patternAt(this.song, this.sequenceIndex);
+    const pattern = this.currentPattern();
     if (!pattern) return;
-    this.pending.push({ at: when, seq: this.sequenceIndex, row: this.row });
+    this.pending.push({ at: when, seq: this.sequenceIndex, pat: this.currentPatternIndex(), row: this.row });
 
     pattern.tracks.forEach((rows, track) => {
       const cell = rows[this.row];
@@ -257,12 +272,14 @@ export class Engine {
 
   advance() {
     this.nextRowTime += rowDuration(this.song);
-    const pattern = patternAt(this.song, this.sequenceIndex);
+    const pattern = this.currentPattern();
     const length = pattern ? pattern.length : 64;
 
     if (++this.row >= length) {
       this.row = 0;
-      if (++this.sequenceIndex >= this.song.sequence.length) this.sequenceIndex = 0;
+      // A looping pattern stays put; the sequence moves on.
+      if (this.loopPattern === null &&
+          ++this.sequenceIndex >= this.song.sequence.length) this.sequenceIndex = 0;
     }
   }
 

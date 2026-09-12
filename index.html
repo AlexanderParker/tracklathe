@@ -9,10 +9,10 @@
          serves with a ten-minute max-age, and a browser that fetched the new
          page with the old scripts gets a page that does nothing. Bump it
          (here and in the src/ imports) whenever the files change. -->
-    <link rel="stylesheet" href="style.css?v=10" />
+    <link rel="stylesheet" href="style.css?v=11" />
     <!-- Inline, so there is no favicon round trip and no 404 in the console. -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2314161a%27/%3E%3Cg fill=%27%2378beff%27%3E%3Crect x=%273%27 y=%273%27 width=%2710%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%277.2%27 width=%276%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%2711.4%27 width=%278%27 height=%271.6%27/%3E%3C/g%3E%3C/svg%3E" />
-    <script src="./vendor/Z.js?v=10"></script>
+    <script src="./vendor/Z.js?v=11"></script>
   </head>
   <body>
     <header class="bar">
@@ -21,6 +21,7 @@
       <div class="group">
         <button id="playBtn" class="btn-primary" title="Play or stop (Space)">▶</button>
         <button id="rewindBtn" class="btn" title="Back to the start">⏮</button>
+        <button id="loopBtn" class="btn" title="Loop the pattern on screen instead of playing the sequence">⟲</button>
       </div>
 
       <div class="group">
@@ -109,7 +110,9 @@
           <div id="seqList" class="seq-list"></div>
           <p class="hint">
             The order the patterns play in. A chorus that appears four times is
-            written once and listed four times.
+            written once and listed four times. Drag the handle to reorder. A
+            pattern that is not in the sequence still plays -- on its own,
+            looping -- when it is the one on screen.
           </p>
         </div>
       </section>
@@ -184,6 +187,6 @@
       <span id="status" class="status"></span>
     </footer>
 
-    <script type="module" src="./src/app.js?v=10"></script>
+    <script type="module" src="./src/app.js?v=11"></script>
   </body>
 </html>

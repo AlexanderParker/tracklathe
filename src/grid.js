@@ -6,7 +6,7 @@
 // cursor, selection and text rendering are things the browser already does
 // correctly.
 
-import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=10";
+import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=11";
 
 // Which column of a track the cursor is in.
 export const COLS = ["note", "inst", "vel", "rel", "cut", "vol"];
@@ -184,8 +184,7 @@ export class Grid {
   // the sequence moves to another pattern the grid switches to it, and the
   // sounding row is kept in the middle of the view, the way every tracker
   // since the Amiga has scrolled.
-  showPlayhead(seqIndex, row) {
-    const idx = this.song.sequence[seqIndex];
+  showPlayhead(idx, row) {
     if (idx !== undefined && idx !== this.patternIndex) {
       this.patternIndex = idx;
       if (this.cursor.row >= this.pattern().length) this.cursor.row = 0;

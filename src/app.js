@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=10";
-import { Engine } from "./engine.js?v=10";
-import { Grid } from "./grid.js?v=10";
-import { Pad } from "./pad.js?v=10";
-import * as store from "./store.js?v=10";
+} from "./song.js?v=11";
+import { Engine } from "./engine.js?v=11";
+import { Grid } from "./grid.js?v=11";
+import { Pad } from "./pad.js?v=11";
+import * as store from "./store.js?v=11";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 // every file for ten minutes, so a reload inside that window can pair a
 // fresh page with stale scripts, or the reverse -- and the result is a
 // page that half works, which is worse than one that says so.
-const BUILD = 10;
+const BUILD = 11;
 
 let song = makeSong();
 let engine = new Engine(song);
@@ -58,12 +58,27 @@ function showTab(name) {
 
 // ------------------------------------------------------------- transport
 
+// Start (or move) playback at a row of the pattern on screen. In the
+// sequence, that means its slot in the song; not in the sequence, or with
+// Loop on, the pattern plays on its own, round and round.
+function locate(row) {
+  const seq = sequenceIndexShowing();
+  if (loopOn || seq < 0) {
+    engine.seek(engine.sequenceIndex, row, grid.patternIndex);
+    if (seq < 0 && !loopOn)
+      setStatus(`Looping pattern ${song.patterns[grid.patternIndex].name}: it is not in the sequence`);
+  } else {
+    engine.seek(seq, row, null);
+  }
+}
+
+let loopOn = false;
+
 function play() {
   engine.song = song;
-  // From the cursor, in the pattern on screen -- if that pattern is in the
-  // sequence at all. If it is not, play from wherever playback last was.
-  const seq = sequenceIndexShowing();
-  if (seq >= 0) engine.seek(seq, grid.cursor.row);
+  // From the cursor, in the pattern on screen: the row you are looking at
+  // is the one you want to hear.
+  locate(grid.cursor.row);
   engine.start();
   if (!engine.playing) return;
   $("playBtn").textContent = "■";
@@ -74,7 +89,7 @@ function play() {
   const frame = () => {
     if (!engine.playing) return;
     const pos = engine.positionAt(Z.aC.currentTime);
-    grid.showPlayhead(pos.seq, pos.row);
+    grid.showPlayhead(pos.pat, pos.row);
     frameHandle = requestAnimationFrame(frame);
   };
   frameHandle = requestAnimationFrame(frame);
@@ -88,7 +103,21 @@ function stop() {
   $("playBtn").textContent = "▶";
   // The highlight stays where playback got to: that is where it resumes.
   const p = engine.position;
-  grid.showPlayhead(p.seq, p.row);
+  grid.showPlayhead(p.pat, p.row);
+}
+
+// Show a pattern for editing: cursor to the top, and playback -- if it is
+// running -- to the top of the same pattern, so what is heard is what is
+// on screen.
+function switchPattern(idx) {
+  if (idx < 0 || idx >= song.patterns.length) return;
+  grid.patternIndex = idx;
+  grid.cursor.row = 0;
+  grid.render();
+  $("patLength").value = String(song.patterns[idx].length);
+  $("patSelect").value = String(idx);
+  if (engine.playing) locate(0);
+  else { const p = engine.position; if (p.pat === idx) grid.showPlayhead(idx, p.row); }
 }
 
 // The sequence position that plays the pattern on screen: the current one
@@ -137,11 +166,8 @@ function newPattern() {
   const tracks = song.patterns[0].tracks.length;
   song.patterns.push(makePattern(name, song.patterns[grid.patternIndex]?.length ?? 64, tracks));
   song.sequence.push(n);
-  grid.patternIndex = n;
-  grid.cursor.row = 0;
-  grid.render();
-  $("patLength").value = String(song.patterns[n].length);
   renderPatSelect();
+  switchPattern(n);
   markDirty();
   setStatus(`Pattern ${name} added to the end of the sequence`);
 }
@@ -320,10 +346,9 @@ function renderPatterns() {
     item.appendChild(len);
 
     item.appendChild(mini("Edit", "Edit this pattern", () => {
-      grid.patternIndex = i;
-      $("patLength").value = String(p.length);
-      renderPatterns();
       renderPatSelect();
+      switchPattern(i);
+      renderPatterns();
       showTab("tracker");
     }));
 
@@ -345,6 +370,49 @@ function renderPatterns() {
   });
 }
 
+function moveSequenceEntry(from, to) {
+  if (to < 0 || to >= song.sequence.length || from === to) return;
+  const [entry] = song.sequence.splice(from, 1);
+  song.sequence.splice(to, 0, entry);
+  // Keep the playhead on the same entry, wherever it went.
+  if (engine.position.seq === from) { engine.sequenceIndex = to; engine.position.seq = to; }
+  else if (from < engine.position.seq && to >= engine.position.seq) { engine.sequenceIndex--; engine.position.seq--; }
+  else if (from > engine.position.seq && to <= engine.position.seq) { engine.sequenceIndex++; engine.position.seq++; }
+  markDirty();
+  renderSequence();
+}
+
+// Reordering by dragging the handle. Pointer events rather than HTML drag
+// and drop, which touch screens do not do; the item follows the finger up
+// and down the list and the song is rewritten from the list on release.
+function dragToReorder(handle, item) {
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const list = item.parentElement;
+    const from = Array.from(list.children).indexOf(item);
+    item.classList.add("dragging");
+    handle.setPointerCapture(e.pointerId);
+    const onMove = (ev) => {
+      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".seq-item");
+      if (!over || over === item || over.parentElement !== list) return;
+      const r = over.getBoundingClientRect();
+      const before = ev.clientY < r.top + r.height / 2;
+      list.insertBefore(item, before ? over : over.nextSibling);
+    };
+    const onUp = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+      item.classList.remove("dragging");
+      const to = Array.from(list.children).indexOf(item);
+      moveSequenceEntry(from, to);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  });
+}
+
 function renderSequence() {
   const list = $("seqList");
   list.replaceChildren();
@@ -352,6 +420,14 @@ function renderSequence() {
   song.sequence.forEach((patIdx, i) => {
     const item = document.createElement("div");
     item.className = "seq-item";
+    if (engine.position.seq === i && engine.loopPattern === null) item.classList.add("sel");
+
+    const handle = document.createElement("span");
+    handle.className = "seq-handle";
+    handle.textContent = "≡";
+    handle.title = "Drag to reorder";
+    item.appendChild(handle);
+    dragToReorder(handle, item);
 
     const pos = document.createElement("span");
     pos.className = "seq-pos";
@@ -372,9 +448,13 @@ function renderSequence() {
     });
     item.appendChild(sel);
 
+    item.appendChild(mini("▲", "Move up", () => moveSequenceEntry(i, i - 1)));
+    item.appendChild(mini("▼", "Move down", () => moveSequenceEntry(i, i + 1)));
+
     if (song.sequence.length > 1)
       item.appendChild(mini("×", "Remove from the sequence", () => {
         song.sequence.splice(i, 1);
+        if (engine.sequenceIndex >= song.sequence.length) engine.sequenceIndex = 0;
         markDirty();
         renderSequence();
       }, "btn-danger"));
@@ -477,6 +557,8 @@ function adoptSong(json, message) {
   grid.engine = engine;
   grid.patternIndex = 0;
   grid.cursor = { row: 0, track: 0, col: 0 };
+  loopOn = false;
+  $("loopBtn").classList.remove("on");
   grid.currentInstrument = 0;
 
   $("songName").value = song.name;
@@ -570,10 +652,7 @@ function init() {
     grid.root.focus({ preventScroll: true });
   });
   $("patSelect").addEventListener("change", () => {
-    grid.patternIndex = Number($("patSelect").value);
-    grid.cursor.row = Math.min(grid.cursor.row, song.patterns[grid.patternIndex].length - 1);
-    grid.render();
-    $("patLength").value = String(song.patterns[grid.patternIndex].length);
+    switchPattern(Number($("patSelect").value));
     grid.root.focus({ preventScroll: true });
   });
   grid.onPattern = (idx) => {
@@ -610,13 +689,17 @@ function init() {
   $("playBtn").addEventListener("click", togglePlay);
   $("rewindBtn").addEventListener("click", () => {
     engine.rewind();
-    grid.showPlayhead(0, 0);
+    grid.showPlayhead(engine.position.pat, 0);
+  });
+  $("loopBtn").addEventListener("click", () => {
+    loopOn = !loopOn;
+    $("loopBtn").classList.toggle("on", loopOn);
+    if (engine.playing) locate(engine.position.row);
+    setStatus(loopOn ? "Looping the pattern on screen" : "Playing the sequence");
   });
   grid.onSeek = (row) => {
-    const seq = sequenceIndexShowing();
-    if (seq < 0) { setStatus("This pattern is not in the sequence, so it cannot be played from here"); return; }
-    engine.seek(seq, row);
-    grid.showPlayhead(seq, row);
+    locate(row);
+    grid.showPlayhead(grid.patternIndex, row);
   };
 
   $("songName").addEventListener("input", () => {

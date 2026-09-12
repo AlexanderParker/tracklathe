@@ -350,6 +350,18 @@ input.inst-seed { width: 140px; font-family: var(--mono); }
   flex-wrap: wrap;
 }
 .pat-item.sel, .seq-item.sel { outline: 1px solid var(--accent-dim); }
+.seq-item.dragging { opacity: 0.6; outline: 1px dashed var(--accent); }
+.seq-handle {
+  cursor: grab;
+  color: var(--dim);
+  font-size: 18px;
+  padding: 0 6px;
+  /* The handle owns the gesture: no scrolling starts from it. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#loopBtn.on { background: var(--accent-dim); border-color: var(--accent-dim); }
 .seq-pos, .pat-idx { font-family: var(--mono); color: var(--dim); }
 .seq-item select { flex: 1 1 120px; }
 .pat-item .pat-name { flex: 1 1 120px; }
