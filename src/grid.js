@@ -6,7 +6,7 @@
 // cursor, selection and text rendering are things the browser already does
 // correctly.
 
-import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=7";
+import { NOTE_OFF, emptyCell, isEmptyCell, noteName } from "./song.js?v=9";
 
 // Which column of a track the cursor is in.
 export const COLS = ["note", "inst", "vel", "rel", "cut", "vol"];
@@ -33,6 +33,8 @@ export class Grid {
     this.playRow = -1;
     this.onEdit = null;       // () => void, for marking the song dirty
     this.onCursor = null;     // () => void, so the input pad can follow
+    this.onSeek = null;       // (row) => void, a tap on a row number
+    this.onInstrument = null; // () => void, currentInstrument changed
 
     this.root.tabIndex = 0;
     this.root.addEventListener("keydown", (e) => this.onKey(e));
@@ -219,9 +221,16 @@ export class Grid {
     this.press = null;
     if (!press) return;
     if (Math.abs(e.clientX - press.x) > 8 || Math.abs(e.clientY - press.y) > 8) return;
-    const col = press.target.closest(".tl-col");
     const row = press.target.closest(".tl-row[data-row]");
-    if (!col || !row) return;
+    if (!row) return;
+    // The row number is the transport: a tap there moves playback, the way
+    // clicking a bar number does in any sequencer.
+    if (press.target.closest(".tl-rownum")) {
+      if (this.onSeek) this.onSeek(Number(row.dataset.row));
+      return;
+    }
+    const col = press.target.closest(".tl-col");
+    if (!col) return;
     this.cursor.row = Number(row.dataset.row);
     this.cursor.track = Number(col.dataset.track);
     this.cursor.col = Number(col.dataset.col);
@@ -250,6 +259,16 @@ export class Grid {
     if (this.onCursor) this.onCursor();
   }
 
+  jumpTo(row) {
+    const p = this.pattern();
+    if (!p) return;
+    this.cursor.row = Math.max(0, Math.min(p.length - 1, row));
+    this.typingAt = null;
+    this.cutSign = null;
+    this.paintCursor();
+    if (this.onCursor) this.onCursor();
+  }
+
   edit(fn) {
     const c = this.cell(this.cursor.row, this.cursor.track, true);
     if (!c) return;
@@ -268,16 +287,18 @@ export class Grid {
     if (k === "ArrowUp") return this.consume(e, () => this.move(-1, 0, 0));
     if (k === "ArrowRight") return this.consume(e, () => this.move(0, 0, 1));
     if (k === "ArrowLeft") return this.consume(e, () => this.move(0, 0, -1));
-    if (k === "PageDown") return this.consume(e, () => this.move(16, 0, 0));
-    if (k === "PageUp") return this.consume(e, () => this.move(-16, 0, 0));
+    // Page and Home/End clamp rather than wrap: they are for getting to the
+    // ends, and wrapping past an end is never what was meant.
+    if (k === "PageDown") return this.consume(e, () => this.jumpTo(this.cursor.row + 16));
+    if (k === "PageUp") return this.consume(e, () => this.jumpTo(this.cursor.row - 16));
+    if (k === "Home") return this.consume(e, () => this.jumpTo(0));
+    if (k === "End") return this.consume(e, () => this.jumpTo(Infinity));
     if (k === "Tab")
       return this.consume(e, () => this.move(0, e.shiftKey ? -1 : 1, 0));
-    if (k === "Home") return this.consume(e, () => {
-      this.cursor.row = 0; this.paintCursor();
-    });
 
-    if (k === "Delete" || k === "Backspace")
-      return this.consume(e, () => this.clearCell());
+    if (k === "Delete") return this.consume(e, () => this.clearCell());
+    // Backspace works upward, as it does in text: clear, then step back.
+    if (k === "Backspace") return this.consume(e, () => this.clearCellUp());
 
     // Note off, the tracker convention.
     if (k === "`" || k === "'")
@@ -309,6 +330,11 @@ export class Grid {
   clearCell() {
     this.edit((c) => { for (const col of COLS) c[col] = null; });
     this.move(this.step, 0, 0);
+  }
+
+  clearCellUp() {
+    this.edit((c) => { for (const col of COLS) c[col] = null; });
+    this.move(-this.step, 0, 0);
   }
 
   typeNoteOff() {
@@ -351,6 +377,15 @@ export class Grid {
       c.cut = sign * next;
     });
     this.typingAt = `${this.cursor.row}:${this.cursor.track}:${col}`;
+    // Typing an instrument number is choosing an instrument: the next notes
+    // entered should get it without a trip to the selector.
+    if (col === "inst") {
+      const c = this.cell(this.cursor.row, this.cursor.track);
+      if (c && c.inst !== null && c.inst < this.song.instruments.length) {
+        this.currentInstrument = c.inst;
+        if (this.onInstrument) this.onInstrument();
+      }
+    }
     // A second digit lands in the same cell; a third starts over, and the
     // sign only applies to the number it was typed in front of.
     clearTimeout(this.typingTimer);

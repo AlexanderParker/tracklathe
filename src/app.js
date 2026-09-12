@@ -2,11 +2,11 @@
 
 import {
   makeInstrument, makePattern, makeSong, songFromJson, songToJson,
-} from "./song.js?v=7";
-import { Engine } from "./engine.js?v=7";
-import { Grid } from "./grid.js?v=7";
-import { Pad } from "./pad.js?v=7";
-import * as store from "./store.js?v=7";
+} from "./song.js?v=9";
+import { Engine } from "./engine.js?v=9";
+import { Grid } from "./grid.js?v=9";
+import { Pad } from "./pad.js?v=9";
+import * as store from "./store.js?v=9";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 // every file for ten minutes, so a reload inside that window can pair a
 // fresh page with stale scripts, or the reverse -- and the result is a
 // page that half works, which is worse than one that says so.
-const BUILD = 7;
+const BUILD = 9;
 
 let song = makeSong();
 let engine = new Engine(song);
@@ -50,8 +50,9 @@ function showTab(name) {
     grid.render();
     grid.root.focus({ preventScroll: true });
   }
-  if (name === "instruments") renderInstruments();
-  if (name === "patterns") { renderPatterns(); renderSequence(); }
+  if (name === "instruments") { renderInstruments(); ensureEditor(); }
+  if (name === "patterns") renderPatterns();
+  if (name === "sequence") renderSequence();
   if (name === "songs") renderSongs();
 }
 
@@ -81,7 +82,18 @@ function stop() {
   engine.stop();
   cancelAnimationFrame(frameHandle);
   $("playBtn").textContent = "▶";
-  grid.clearPlayhead();
+  // The highlight stays where playback got to: that is where it resumes.
+  const p = engine.position;
+  grid.showPlayhead(p.seq, p.row);
+}
+
+// The sequence position that plays the pattern on screen: the current one
+// if it does, else the first that does. -1 if the pattern is not in the
+// sequence at all, in which case there is nowhere to seek to.
+function sequenceIndexShowing() {
+  const idx = grid.patternIndex;
+  if (song.sequence[engine.position.seq] === idx) return engine.position.seq;
+  return song.sequence.indexOf(idx);
 }
 
 function togglePlay() {
@@ -90,7 +102,99 @@ function togglePlay() {
 
 // ---------------------------------------------------------- instruments
 
+function renderInstSelect() {
+  const sel = $("instSelect");
+  sel.replaceChildren();
+  song.instruments.forEach((inst, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${String(i).padStart(2, "0")} ${inst.name}`;
+    sel.appendChild(opt);
+  });
+  sel.value = String(Math.min(grid.currentInstrument ?? 0, song.instruments.length - 1));
+}
+
+function renderPatSelect() {
+  const sel = $("patSelect");
+  sel.replaceChildren();
+  song.patterns.forEach((p, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${String(i).padStart(2, "0")} ${p.name}`;
+    sel.appendChild(opt);
+  });
+  sel.value = String(grid.patternIndex);
+  $("trackCount").textContent = String(song.patterns[0].tracks.length);
+}
+
+function newPattern() {
+  const n = song.patterns.length;
+  const name = String.fromCharCode(65 + (n % 26)) + (n >= 26 ? String(Math.floor(n / 26)) : "");
+  const tracks = song.patterns[0].tracks.length;
+  song.patterns.push(makePattern(name, song.patterns[grid.patternIndex]?.length ?? 64, tracks));
+  song.sequence.push(n);
+  grid.patternIndex = n;
+  grid.cursor.row = 0;
+  grid.render();
+  $("patLength").value = String(song.patterns[n].length);
+  renderPatSelect();
+  markDirty();
+  setStatus(`Pattern ${name} added to the end of the sequence`);
+}
+
+// Every pattern has the same number of tracks; adding or removing one
+// changes them all. Removing drops the last track, which is the only
+// destructive thing here, so it asks if anything is in it.
+function setTrackCount(n) {
+  n = Math.max(1, Math.min(32, n));
+  const cur = song.patterns[0].tracks.length;
+  if (n === cur) return;
+  if (n < cur) {
+    const used = song.patterns.some((p) => p.tracks.slice(n).some((rows) => rows.some((c) => c)));
+    if (used && !confirm(`Track ${cur} has notes in it. Remove it anyway?`)) return;
+  }
+  song.patterns.forEach((p) => {
+    while (p.tracks.length < n) p.tracks.push(Array.from({ length: p.length }, () => null));
+    p.tracks.length = n;
+  });
+  if (grid.cursor.track >= n) grid.cursor.track = n - 1;
+  grid.render();
+  renderPatSelect();
+  markDirty();
+}
+
+// --------------------------------------------------------------- editor
+
+const EDITOR_ORIGIN = "https://alexanderparker.github.io";
+let editorSeed = null;
+
+function ensureEditor() {
+  const frame = $("zynFrame");
+  if (frame.src) return;
+  sendToEditor();
+}
+
+function sendToEditor() {
+  const inst = song.instruments[grid.currentInstrument ?? 0];
+  const seed = inst ? inst.seed : 0;
+  $("zynFrame").src = `${EDITOR_ORIGIN}/zyn/?instrumentSeed=${seed}`;
+}
+
+function takeFromEditor() {
+  if (editorSeed === null) return;
+  const i = grid.currentInstrument ?? 0;
+  const inst = song.instruments[i];
+  if (!inst) return;
+  inst.seed = editorSeed >>> 0;
+  engine.clearCache();
+  renderInstruments();
+  markDirty();
+  setStatus(`Instrument ${String(i).padStart(2, "0")} is now seed ${inst.seed}`);
+}
+
 function renderInstruments() {
+  renderInstSelect();
+  renderPatSelect();
   const list = $("instList");
   list.replaceChildren();
 
@@ -215,6 +319,7 @@ function renderPatterns() {
       grid.patternIndex = i;
       $("patLength").value = String(p.length);
       renderPatterns();
+      renderPatSelect();
       showTab("tracker");
     }));
 
@@ -380,6 +485,7 @@ function adoptSong(json, message) {
   renderInstruments();
   renderPatterns();
   renderSequence();
+  $("zynFrame").removeAttribute("src");
   dirty = false;
   $("songName").classList.remove("dirty");
   setStatus(message);
@@ -453,9 +559,37 @@ function init() {
   grid.currentInstrument = 0;
   grid.onEdit = () => { markDirty(); pad.sync(); };
   grid.onCursor = () => pad.sync();
+  grid.onInstrument = () => renderInstruments();
+  $("instSelect").addEventListener("change", () => {
+    grid.currentInstrument = Number($("instSelect").value);
+    renderInstruments();
+    grid.root.focus({ preventScroll: true });
+  });
+  $("patSelect").addEventListener("change", () => {
+    grid.patternIndex = Number($("patSelect").value);
+    grid.cursor.row = Math.min(grid.cursor.row, song.patterns[grid.patternIndex].length - 1);
+    grid.render();
+    $("patLength").value = String(song.patterns[grid.patternIndex].length);
+    grid.root.focus({ preventScroll: true });
+  });
   grid.onPattern = (idx) => {
     $("patLength").value = String(song.patterns[idx].length);
+    $("patSelect").value = String(idx);
   };
+  $("newPattern").addEventListener("click", newPattern);
+  $("moreTracks").addEventListener("click", () => setTrackCount(song.patterns[0].tracks.length + 1));
+  $("fewerTracks").addEventListener("click", () => setTrackCount(song.patterns[0].tracks.length - 1));
+
+  $("editorSend").addEventListener("click", sendToEditor);
+  $("editorTake").addEventListener("click", takeFromEditor);
+  window.addEventListener("message", (e) => {
+    if (e.origin !== EDITOR_ORIGIN) return;
+    const d = e.data;
+    if (!d || d.type !== "zyn-seed" || !Number.isFinite(Number(d.seed))) return;
+    editorSeed = Number(d.seed);
+    $("editorSeed").textContent = `Editor is showing seed ${editorSeed}`;
+    $("editorTake").disabled = false;
+  });
 
   pad = new Pad($("pad"), grid);
   // For poking at from the console: the engine's lateRows counter is the
@@ -472,9 +606,14 @@ function init() {
   $("playBtn").addEventListener("click", togglePlay);
   $("rewindBtn").addEventListener("click", () => {
     engine.rewind();
-    if (engine.playing) { stop(); play(); }
-    else grid.showPlayhead(0, 0), grid.clearPlayhead();
+    grid.showPlayhead(0, 0);
   });
+  grid.onSeek = (row) => {
+    const seq = sequenceIndexShowing();
+    if (seq < 0) { setStatus("This pattern is not in the sequence, so it cannot be played from here"); return; }
+    engine.seek(seq, row);
+    grid.showPlayhead(seq, row);
+  };
 
   $("songName").addEventListener("input", () => {
     song.name = $("songName").value; markDirty();
@@ -512,6 +651,7 @@ function init() {
     if (grid.cursor.row >= want) grid.cursor.row = want - 1;
     grid.render();
     renderPatterns();
+    renderPatSelect();
     markDirty();
   });
 
@@ -524,16 +664,7 @@ function init() {
     markDirty();
   });
 
-  $("addPattern").addEventListener("click", () => {
-    const name = String.fromCharCode(65 + (song.patterns.length % 26)) +
-                 (song.patterns.length >= 26 ? String(Math.floor(song.patterns.length / 26)) : "");
-    song.patterns.push(makePattern(name, song.patterns[grid.patternIndex]?.length ?? 64));
-    grid.patternIndex = song.patterns.length - 1;
-    grid.render();
-    renderPatterns();
-    renderSequence();
-    markDirty();
-  });
+  $("addPattern").addEventListener("click", () => { newPattern(); renderPatterns(); });
 
   $("addSeq").addEventListener("click", () => {
     song.sequence.push(grid.patternIndex);

@@ -19,7 +19,7 @@
 // in a background tab; a Worker's timer keeps going, and is not queued behind
 // the page's layout and paint the way a main-thread timer is.
 
-import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=7";
+import { NOTE_OFF, patternAt, rowDuration } from "./song.js?v=9";
 
 const TICK_MS = 20;           // how often the scheduler looks
 const SCHEDULE_AHEAD = 0.5;   // how far ahead it queues, in seconds
@@ -47,7 +47,7 @@ export class Engine {
     // What each track is currently holding, so a note can be cut by the next
     // one on the same track or by an explicit OFF -- which is what makes a
     // tracker monophonic per track and lets a held pad end where you say.
-    this.held = new Array(16).fill(null);
+    this.held = [];
 
     // Rows queued but not yet audible, in time order. The display reads the
     // one whose time has come; nothing here calls out to it.
@@ -130,14 +130,14 @@ export class Engine {
   // thread, in the middle of the bar. Better in the moment before the song
   // starts.
   prewarm() {
-    const when = Z.aC.currentTime;
     this.song.instruments.forEach((def, slot) => {
       const inst = this.instrumentFor(slot);
       if (!inst) return;
-      try {
-        const id = Z.noteOn(0, inst, 0, when);
-        if (id) Z.noteOff(id, when);
-      } catch (e) { /* a broken seed is a broken seed */ }
+      // No voice, no sound: zyn builds the effect chains and nothing else.
+      // (A note at gain zero is not silent in zyn -- a gain LFO adds to the
+      // parameter whatever the envelope is doing -- which is how this used
+      // to play a chord of every instrument on every press of play.)
+      try { Z.prepare(inst); } catch (e) { /* a broken seed is a broken seed */ }
     });
   }
 
@@ -174,13 +174,28 @@ export class Engine {
     this.pending = [];
     for (let t = 0; t < this.held.length; ++t) this.releaseTrack(t);
     Z.stopAll();
+    // The scheduler is a lookahead past what was heard; pick up again from
+    // the row the listener actually got to, not the one that was queued.
+    this.sequenceIndex = this.position.seq;
+    this.row = this.position.row;
     if (this.onStop) this.onStop();
   }
 
   rewind() {
-    this.sequenceIndex = 0;
-    this.row = 0;
-    this.position = { seq: 0, row: 0 };
+    this.seek(0, 0);
+  }
+
+  // Move playback to a row. While playing, everything queued past this
+  // moment is abandoned and the tracks are released, so the jump is heard
+  // at once rather than after the lookahead has drained.
+  seek(seq, row) {
+    this.sequenceIndex = seq;
+    this.row = row;
+    this.position = { seq, row };
+    if (!this.playing) return;
+    this.pending = [];
+    for (let t = 0; t < this.held.length; ++t) this.releaseTrack(t);
+    this.nextRowTime = Z.aC.currentTime + 0.05;
   }
 
   releaseTrack(track, when = null) {

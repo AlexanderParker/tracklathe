@@ -59,20 +59,27 @@ is what lets a held pad end where you say.
 ### Instruments
 
 Each slot is a seed and a few settings. Roll the dice until something is
-worth keeping, or paste a seed from
-[the zyn demo](https://alexanderparker.github.io/zyn/) or from
-[Seedlathe](https://github.com/AlexanderParker/seedlathe), which is the same
-synthesizer as a VST plugin. The same number sounds the same in all three.
+worth keeping, or design one: the Instruments tab embeds
+[the zyn editor](https://alexanderparker.github.io/zyn/) itself, and *Use
+editor seed* hands whatever it is showing to the selected instrument. Seeds
+from [Seedlathe](https://github.com/AlexanderParker/seedlathe), the same
+synthesizer as a VST plugin, work too. The same number sounds the same in
+all three.
+
+The selector above the grid is the instrument new notes get; typing an
+instrument number into a cell selects it as well.
 
 Octave, volume, cutoff and resonance belong to the instrument; the per-row
 columns are offsets on top.
 
 ### Patterns and the sequence
 
-Patterns are written once and arranged in the sequence list, so a chorus that
-appears four times is stored once. The pattern shown follows the playhead
-only when it is the one sounding, because a highlight on a pattern you are
-not hearing is a lie.
+Patterns are written once and arranged in the Sequence tab, so a chorus that
+appears four times is stored once. *+ pattern* above the grid makes a new
+one, switches to it and appends it to the sequence. Songs start with eight
+tracks; the tracker bar adds more, up to thirty-two. While playing, the grid
+follows the song -- switching pattern as the sequence moves on -- and a tap
+on a row number moves playback there.
 
 ### Keeping a song
 

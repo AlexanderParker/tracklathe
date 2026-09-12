@@ -9,7 +9,8 @@
 export const FORMAT = "tracklathe-song";
 export const VERSION = 1;
 
-export const MAX_TRACKS = 8;
+export const MAX_TRACKS = 32;
+export const DEFAULT_TRACKS = 8;
 export const MAX_PATTERN_ROWS = 256;
 
 // A cell is null when empty. `note` is a semitone offset from middle C, so 0
@@ -39,7 +40,7 @@ export function makeInstrument(name, seed) {
   };
 }
 
-export function makePattern(name, length = 64, tracks = MAX_TRACKS) {
+export function makePattern(name, length = 64, tracks = DEFAULT_TRACKS) {
   return {
     name: name || "Pattern",
     length,
@@ -160,7 +161,7 @@ export function songFromJson(j) {
       if (!pj || typeof pj !== "object") continue;
       const length = clamp(Math.round(num(pj.length, 64)), 1, MAX_PATTERN_ROWS);
       const trackCount = Array.isArray(pj.tracks)
-        ? clamp(pj.tracks.length, 1, MAX_TRACKS) : MAX_TRACKS;
+        ? clamp(pj.tracks.length, 1, MAX_TRACKS) : DEFAULT_TRACKS;
       const p = makePattern(
         typeof pj.name === "string" ? pj.name.slice(0, 32) : "Pattern",
         length, trackCount);

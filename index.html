@@ -9,10 +9,10 @@
          serves with a ten-minute max-age, and a browser that fetched the new
          page with the old scripts gets a page that does nothing. Bump it
          (here and in the src/ imports) whenever the files change. -->
-    <link rel="stylesheet" href="style.css?v=7" />
+    <link rel="stylesheet" href="style.css?v=9" />
     <!-- Inline, so there is no favicon round trip and no 404 in the console. -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2314161a%27/%3E%3Cg fill=%27%2378beff%27%3E%3Crect x=%273%27 y=%273%27 width=%2710%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%277.2%27 width=%276%27 height=%271.6%27/%3E%3Crect x=%273%27 y=%2711.4%27 width=%278%27 height=%271.6%27/%3E%3C/g%3E%3C/svg%3E" />
-    <script src="./vendor/Z.js?v=7"></script>
+    <script src="./vendor/Z.js?v=9"></script>
   </head>
   <body>
     <header class="bar">
@@ -38,6 +38,7 @@
       <button class="tab sel" data-tab="tracker" role="tab">Tracker</button>
       <button class="tab" data-tab="instruments" role="tab">Instruments</button>
       <button class="tab" data-tab="patterns" role="tab">Patterns</button>
+      <button class="tab" data-tab="sequence" role="tab">Sequence</button>
       <button class="tab" data-tab="songs" role="tab">Songs</button>
       <button class="tab" data-tab="help" role="tab">Help</button>
     </nav>
@@ -45,6 +46,17 @@
     <main>
       <!-- ------------------------------------------------------ tracker -->
       <section id="tab-tracker" class="tab-panel sel" role="tabpanel">
+        <div class="tracker-bar">
+          <label>Instrument
+            <select id="instSelect" title="The instrument new notes are given"></select></label>
+          <label>Pattern
+            <select id="patSelect" title="The pattern being edited"></select></label>
+          <button id="newPattern" class="btn-mini" title="New pattern, added to the end of the sequence">+ pattern</button>
+          <label>Tracks
+            <button id="fewerTracks" class="btn-mini" title="Remove the last track">−</button>
+            <span id="trackCount" class="mono">8</span>
+            <button id="moreTracks" class="btn-mini" title="Add a track">+</button></label>
+        </div>
         <div id="grid" class="grid" role="grid" aria-label="Pattern editor"></div>
         <div id="pad" class="pad" aria-label="Input pad"></div>
       </section>
@@ -61,6 +73,19 @@
             The same number sounds the same in all three.
           </p>
         </div>
+        <div class="panel">
+          <h2>Editor
+            <button id="editorSend" class="btn-mini" title="Open the selected instrument's seed in the editor">Open selected instrument</button>
+            <button id="editorTake" class="btn-mini" title="Give the selected instrument the seed showing in the editor" disabled>Use editor seed</button>
+            <span id="editorSeed" class="hint inline"></span>
+          </h2>
+          <iframe id="zynFrame" class="editor-frame" title="zyn instrument editor" loading="lazy" allow="autoplay"></iframe>
+          <p class="hint">
+            This is <a href="https://alexanderparker.github.io/zyn/" target="_blank" rel="noreferrer">the zyn editor</a>,
+            the same page, in a frame. Design or find a seed here, then
+            <em>Use editor seed</em> hands it to the selected instrument.
+          </p>
+        </div>
       </section>
 
       <!-- ----------------------------------------------------- patterns -->
@@ -70,18 +95,22 @@
           <div id="patList" class="pat-list"></div>
         </div>
         <div class="panel">
+          <h2>Timing</h2>
+          <label>Rows per beat <input id="rpb" type="number" value="4" min="1" max="16" /></label>
+          <label class="stacked">Pattern length
+            <input id="patLength" type="number" value="64" min="1" max="256" /></label>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------- sequence -->
+      <section id="tab-sequence" class="tab-panel" role="tabpanel">
+        <div class="panel">
           <h2>Sequence <button id="addSeq" class="btn-mini" title="Append the pattern being edited">+</button></h2>
           <div id="seqList" class="seq-list"></div>
           <p class="hint">
             The order the patterns play in. A chorus that appears four times is
             written once and listed four times.
           </p>
-        </div>
-        <div class="panel">
-          <h2>Timing</h2>
-          <label>Rows per beat <input id="rpb" type="number" value="4" min="1" max="16" /></label>
-          <label class="stacked">Pattern length
-            <input id="patLength" type="number" value="64" min="1" max="256" /></label>
         </div>
       </section>
 
@@ -120,8 +149,12 @@
             <dt>0–9</dt><dd>digits, in the numeric columns</dd>
             <dt>− +</dt><dd>sign, in the filter column</dd>
             <dt>Tab</dt><dd>next track</dd>
-            <dt>Del</dt><dd>clear the cell</dd>
+            <dt>Home / End</dt><dd>first / last row</dd>
+            <dt>PgUp / PgDn</dt><dd>16 rows</dd>
+            <dt>Del</dt><dd>clear the cell and step down</dd>
+            <dt>Backspace</dt><dd>clear the cell and step up</dd>
             <dt>Space</dt><dd>play / stop</dd>
+            <dt>row number</dt><dd>tap to play from there</dd>
           </dl>
           <p class="hint">
             On a phone there is no typing keyboard to offer, so use the pad
@@ -151,6 +184,6 @@
       <span id="status" class="status"></span>
     </footer>
 
-    <script type="module" src="./src/app.js?v=7"></script>
+    <script type="module" src="./src/app.js?v=9"></script>
   </body>
 </html>
